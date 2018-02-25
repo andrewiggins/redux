@@ -111,11 +111,11 @@
   "bundlesize": [
     {
       "path": "dist/redux.js",
-      "threshold": "7.02kB"
+      "threshold": "6.92kB"
     },
     {
       "path": "dist/redux.min.js",
-      "threshold": "2.33kB"
+      "threshold": "1.31kB"
     }
   ]
 }
