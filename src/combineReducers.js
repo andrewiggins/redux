@@ -134,23 +134,23 @@ export default function combineReducers(reducers) {
   const finalReducerKeys = Object.keys(finalReducers)
 
   let unexpectedKeyCache
+  let shapeAssertionError
   if (process.env.NODE_ENV !== 'production') {
     unexpectedKeyCache = {}
-  }
 
-  let shapeAssertionError
-  try {
-    assertReducerShape(finalReducers)
-  } catch (e) {
-    shapeAssertionError = e
+    try {
+      assertReducerShape(finalReducers)
+    } catch (e) {
+      shapeAssertionError = e
+    }
   }
 
   return function combination(state = {}, action) {
-    if (shapeAssertionError) {
-      throw shapeAssertionError
-    }
-
     if (process.env.NODE_ENV !== 'production') {
+      if (shapeAssertionError) {
+        throw shapeAssertionError
+      }
+
       const warningMessage = getUnexpectedStateShapeWarningMessage(
         state,
         finalReducers,
@@ -170,8 +170,12 @@ export default function combineReducers(reducers) {
       const previousStateForKey = state[key]
       const nextStateForKey = reducer(previousStateForKey, action)
       if (typeof nextStateForKey === 'undefined') {
-        const errorMessage = getUndefinedStateErrorMessage(key, action)
-        throw new Error(errorMessage)
+        if (process.env.NODE_ENV !== 'production') {
+          const errorMessage = getUndefinedStateErrorMessage(key, action)
+          throw new Error(errorMessage)
+        } else {
+          throw new Error('REDUX007: Reducers cannot return undefined')
+        }
       }
       nextState[key] = nextStateForKey
       hasChanged = hasChanged || nextStateForKey !== previousStateForKey
