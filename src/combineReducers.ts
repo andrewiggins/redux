@@ -1,8 +1,13 @@
 import ActionTypes from './utils/actionTypes'
 import warning from './utils/warning'
 import isPlainObject from './utils/isPlainObject'
+import { AnyAction, ReducersMapObject, Reducer, Action } from './types'
 
-function getUndefinedStateErrorMessage(key, action) {
+interface UnexpectedKeyCache {
+  [key: string]: boolean;
+}
+
+function getUndefinedStateErrorMessage(key: string, action: AnyAction): string {
   const actionType = action && action.type
   const actionDescription =
     (actionType && `action "${String(actionType)}"`) || 'an action'
@@ -14,12 +19,12 @@ function getUndefinedStateErrorMessage(key, action) {
   )
 }
 
-function getUnexpectedStateShapeWarningMessage(
-  inputState,
-  reducers,
-  action,
-  unexpectedKeyCache
-) {
+function getUnexpectedStateShapeWarningMessage<S>(
+  inputState: S,
+  reducers: ReducersMapObject,
+  action: AnyAction,
+  unexpectedKeyCache: UnexpectedKeyCache
+): string | undefined {
   const reducerKeys = Object.keys(reducers)
   const argumentName =
     action && action.type === ActionTypes.INIT
@@ -62,7 +67,7 @@ function getUnexpectedStateShapeWarningMessage(
   }
 }
 
-function assertReducerShape(reducers) {
+function assertReducerShape(reducers: ReducersMapObject): void {
   Object.keys(reducers).forEach(key => {
     const reducer = reducers[key]
     const initialState = reducer(undefined, { type: ActionTypes.INIT })
@@ -77,13 +82,7 @@ function assertReducerShape(reducers) {
       )
     }
 
-    const type =
-      '@@redux/PROBE_UNKNOWN_ACTION_' +
-      Math.random()
-        .toString(36)
-        .substring(7)
-        .split('')
-        .join('.')
+    const type = '@@redux/PROBE_UNKNOWN_ACTION_'
     if (typeof reducer(undefined, { type }) === 'undefined') {
       throw new Error(
         `Reducer "${key}" returned undefined when probed with a random type. ` +
@@ -99,25 +98,29 @@ function assertReducerShape(reducers) {
   })
 }
 
+
 /**
  * Turns an object whose values are different reducer functions, into a single
  * reducer function. It will call every child reducer, and gather their results
  * into a single state object, whose keys correspond to the keys of the passed
  * reducer functions.
  *
- * @param {Object} reducers An object whose values correspond to different
- * reducer functions that need to be combined into one. One handy way to obtain
- * it is to use ES6 `import * as reducers` syntax. The reducers may never return
- * undefined for any action. Instead, they should return their initial state
- * if the state passed to them was undefined, and the current state for any
- * unrecognized action.
+ * @template S Combined state object type.
  *
- * @returns {Function} A reducer function that invokes every reducer inside the
- * passed object, and builds a state object with the same shape.
+ * @param reducers An object whose values correspond to different reducer
+ *   functions that need to be combined into one. One handy way to obtain it
+ *   is to use ES6 `import * as reducers` syntax. The reducers may never
+ *   return undefined for any action. Instead, they should return their
+ *   initial state if the state passed to them was undefined, and the current
+ *   state for any unrecognized action.
+ *
+ * @returns A reducer function that invokes every reducer inside the passed
+ *   object, and builds a state object with the same shape.
  */
-export default function combineReducers(reducers) {
-  const reducerKeys = Object.keys(reducers)
-  const finalReducers = {}
+export function combineReducers<S>(reducers: ReducersMapObject<S, any>): Reducer<S>;
+export default function combineReducers<S, A extends Action = AnyAction>(reducers: ReducersMapObject<S, A>): Reducer<S, A> {
+  const reducerKeys = Object.keys(reducers);
+  const finalReducers: ReducersMapObject = {};
   for (let i = 0; i < reducerKeys.length; i++) {
     const key = reducerKeys[i]
 
@@ -133,19 +136,19 @@ export default function combineReducers(reducers) {
   }
   const finalReducerKeys = Object.keys(finalReducers)
 
-  let unexpectedKeyCache
+  let unexpectedKeyCache: UnexpectedKeyCache
   if (process.env.NODE_ENV !== 'production') {
     unexpectedKeyCache = {}
   }
 
-  let shapeAssertionError
+  let shapeAssertionError: Error
   try {
     assertReducerShape(finalReducers)
   } catch (e) {
     shapeAssertionError = e
   }
 
-  return function combination(state = {}, action) {
+  return function combination(state = {} as any, action) {
     if (shapeAssertionError) {
       throw shapeAssertionError
     }
@@ -163,7 +166,7 @@ export default function combineReducers(reducers) {
     }
 
     let hasChanged = false
-    const nextState = {}
+    const nextState: S = {} as any;
     for (let i = 0; i < finalReducerKeys.length; i++) {
       const key = finalReducerKeys[i]
       const reducer = finalReducers[key]

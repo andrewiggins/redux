@@ -112,9 +112,7 @@ export function combineReducers<S, A extends Action = AnyAction>(reducers: Reduc
  * @template A The type of things (actions or otherwise) which may be
  *   dispatched.
  */
-export interface Dispatch<A extends Action = AnyAction> {
-  <T extends A>(action: T): T;
-}
+export type Dispatch<A extends Action = AnyAction> = <T extends A>(action: T) => T;
 
 /**
  * Function to remove listener added by `Store.subscribe()`.
@@ -122,6 +120,8 @@ export interface Dispatch<A extends Action = AnyAction> {
 export interface Unsubscribe {
   (): void;
 }
+
+export type Listener = () => void;
 
 /**
  * A store is an object that holds the application's state tree.
@@ -191,7 +191,7 @@ export interface Store<S = any, A extends Action = AnyAction> {
    * @param listener A callback to be invoked on every dispatch.
    * @returns A function to remove this change listener.
    */
-  subscribe(listener: () => void): Unsubscribe;
+  subscribe(listener: Listener): Unsubscribe;
 
   /**
    * Replaces the reducer currently used by the store to calculate the state.
@@ -206,52 +206,6 @@ export interface Store<S = any, A extends Action = AnyAction> {
 }
 
 export type DeepPartial<T> = { [K in keyof T]?: DeepPartial<T[K]> };
-
-/**
- * A store creator is a function that creates a Redux store. Like with
- * dispatching function, we must distinguish the base store creator,
- * `createStore(reducer, preloadedState)` exported from the Redux package, from
- * store creators that are returned from the store enhancers.
- *
- * @template S The type of state to be held by the store.
- * @template A The type of actions which may be dispatched.
- * @template Ext Store extension that is mixed in to the Store type.
- * @template StateExt State extension that is mixed into the state type.
- */
-export interface StoreCreator {
-  <S, A extends Action, Ext, StateExt>(reducer: Reducer<S, A>, enhancer?: StoreEnhancer<Ext, StateExt>): Store<S & StateExt, A> & Ext;
-  <S, A extends Action, Ext, StateExt>(reducer: Reducer<S, A>, preloadedState: DeepPartial<S>, enhancer?: StoreEnhancer<Ext>): Store<S & StateExt> & Ext;
-}
-
-/**
- * Creates a Redux store that holds the state tree.
- * The only way to change the data in the store is to call `dispatch()` on it.
- *
- * There should only be a single store in your app. To specify how different
- * parts of the state tree respond to actions, you may combine several
- * reducers
- * into a single reducer function by using `combineReducers`.
- *
- * @template S State object type.
- *
- * @param reducer A function that returns the next state tree, given the
- *   current state tree and the action to handle.
- *
- * @param [preloadedState] The initial state. You may optionally specify it to
- *   hydrate the state from the server in universal apps, or to restore a
- *   previously serialized user session. If you use `combineReducers` to
- *   produce the root reducer function, this must be an object with the same
- *   shape as `combineReducers` keys.
- *
- * @param [enhancer] The store enhancer. You may optionally specify it to
- *   enhance the store with third-party capabilities such as middleware, time
- *   travel, persistence, etc. The only store enhancer that ships with Redux
- *   is `applyMiddleware()`.
- *
- * @returns A Redux store that lets you read the state, dispatch actions and
- *   subscribe to changes.
- */
-export const createStore: StoreCreator;
 
 /**
  * A store enhancer is a higher-order function that composes a store creator
@@ -274,8 +228,8 @@ export const createStore: StoreCreator;
  * @template Ext Store extension that is mixed into the Store type.
  * @template StateExt State extension that is mixed into the state type.
  */
-export type StoreEnhancer<Ext = {}, StateExt = {}> = (next: StoreEnhancerStoreCreator) => StoreEnhancerStoreCreator<Ext, StateExt>;
 export type StoreEnhancerStoreCreator<Ext = {}, StateExt = {}> = <S = any, A extends Action = AnyAction>(reducer: Reducer<S, A>, preloadedState?: DeepPartial<S>) => Store<S & StateExt, A> & Ext;
+export type StoreEnhancer<Ext = {}, StateExt = {}> = (next: StoreEnhancerStoreCreator) => StoreEnhancerStoreCreator<Ext, StateExt>;
 
 
 /* middleware */
@@ -303,33 +257,6 @@ export interface Middleware<DispatchExt = {}, S = any, D extends Dispatch = Disp
   (api: MiddlewareAPI<D, S>): (next: Dispatch<AnyAction>) => (action: any) => any;
 }
 
-/**
- * Creates a store enhancer that applies middleware to the dispatch method
- * of the Redux store. This is handy for a variety of tasks, such as
- * expressing asynchronous actions in a concise manner, or logging every
- * action payload.
- *
- * See `redux-thunk` package as an example of the Redux middleware.
- *
- * Because middleware is potentially asynchronous, this should be the first
- * store enhancer in the composition chain.
- *
- * Note that each middleware will be given the `dispatch` and `getState`
- * functions as named arguments.
- *
- * @param middlewares The middleware chain to be applied.
- * @returns A store enhancer applying the middleware.
- *
- * @template Ext Dispatch signature added by a middleware.
- * @template S The type of the state supported by a middleware.
- */
-export function applyMiddleware(): StoreEnhancer;
-export function applyMiddleware<Ext1, S>(middleware1: Middleware<Ext1, S, any>): StoreEnhancer<{dispatch: Ext1}>;
-export function applyMiddleware<Ext1, Ext2, S>(middleware1: Middleware<Ext1, S, any>, middleware2: Middleware<Ext2, S, any>): StoreEnhancer<{dispatch: Ext1 & Ext2}>;
-export function applyMiddleware<Ext1, Ext2, Ext3, S>(middleware1: Middleware<Ext1, S, any>, middleware2: Middleware<Ext2, S, any>, middleware3: Middleware<Ext3, S, any>): StoreEnhancer<{dispatch: Ext1 & Ext2 & Ext3}>;
-export function applyMiddleware<Ext1, Ext2, Ext3, Ext4, S>(middleware1: Middleware<Ext1, S, any>, middleware2: Middleware<Ext2, S, any>, middleware3: Middleware<Ext3, S, any>, middleware4: Middleware<Ext4, S, any>): StoreEnhancer<{dispatch: Ext1 & Ext2 & Ext3 & Ext4}>;
-export function applyMiddleware<Ext1, Ext2, Ext3, Ext4, Ext5, S>(middleware1: Middleware<Ext1, S, any>, middleware2: Middleware<Ext2, S, any>, middleware3: Middleware<Ext3, S, any>, middleware4: Middleware<Ext4, S, any>, middleware5: Middleware<Ext5, S, any>): StoreEnhancer<{dispatch: Ext1 & Ext2 & Ext3 & Ext4 & Ext5}>;
-export function applyMiddleware<Ext, S = any>(...middlewares: Middleware<any, S, any>[]): StoreEnhancer<{dispatch: Ext}>;
 
 
 /* action creators */
@@ -361,39 +288,6 @@ export interface ActionCreator<A> {
 export interface ActionCreatorsMapObject<A = any> {
   [key: string]: ActionCreator<A>;
 }
-
-/**
- * Turns an object whose values are action creators, into an object with the
- * same keys, but with every function wrapped into a `dispatch` call so they
- * may be invoked directly. This is just a convenience method, as you can call
- * `store.dispatch(MyActionCreators.doSomething())` yourself just fine.
- *
- * For convenience, you can also pass a single function as the first argument,
- * and get a function in return.
- *
- * @param actionCreator An object whose values are action creator functions.
- *   One handy way to obtain it is to use ES6 `import * as` syntax. You may
- *   also pass a single function.
- *
- * @param dispatch The `dispatch` function available on your Redux store.
- *
- * @returns The object mimicking the original object, but with every action
- *   creator wrapped into the `dispatch` call. If you passed a function as
- *   `actionCreator`, the return value will also be a single function.
- */
-export function bindActionCreators<A, C extends ActionCreator<A>>(actionCreator: C, dispatch: Dispatch): C;
-
-export function bindActionCreators<
-  A extends ActionCreator<any>,
-  B extends ActionCreator<any>
-  >(actionCreator: A, dispatch: Dispatch): B;
-
-export function bindActionCreators<A, M extends ActionCreatorsMapObject<A>>(actionCreators: M, dispatch: Dispatch): M;
-
-export function bindActionCreators<
-  M extends ActionCreatorsMapObject<any>,
-  N extends ActionCreatorsMapObject<any>
-  >(actionCreators: M, dispatch: Dispatch): N;
 
 
 /* compose */
